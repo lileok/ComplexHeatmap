@@ -63,7 +63,6 @@
 Heatmap = setClass("Heatmap",
     slots = list(
         name = "character",
-
         matrix = "matrix",  # one or more matrix which are spliced by rows
         matrix_param = "list",
         matrix_color_mapping = "ANY",
@@ -99,6 +98,7 @@ Heatmap = setClass("Heatmap",
         heatmap_param = "list",
 
         layout = "list"
+        
     ),
     contains = "AdditiveUnit"
 )
@@ -217,6 +217,12 @@ Heatmap = setClass("Heatmap",
 # Zuguang Gu <z.gu@dkfz.de>
 #
 Heatmap = function(matrix, col, name, 
+                   cluster_rows = TRUE,
+                   cluster_columns = TRUE, 
+                   clustering_distance_rows = "euclidean",
+                   clustering_distance_columns = "euclidean", 
+                   clustering_method_rows = "ward.D2",
+                   clustering_method_columns = "ward.D2",
     na_col = "grey", 
     color_space = "LAB",
     rect_gp = gpar(col = NA), 
@@ -229,9 +235,6 @@ Heatmap = function(matrix, col, name,
     column_title_side = c("top", "bottom"), 
     column_title_gp = gpar(fontsize = 14), 
     column_title_rot = 0,
-    cluster_rows = TRUE, 
-    clustering_distance_rows = "euclidean",
-    clustering_method_rows = "complete", 
     row_dend_side = c("left", "right"),
     row_dend_width = unit(10, "mm"), 
     show_row_dend = TRUE, 
@@ -242,9 +245,7 @@ Heatmap = function(matrix, col, name,
     show_row_hclust = show_row_dend, 
     row_hclust_reorder = row_dend_reorder,
     row_hclust_gp = row_dend_gp, 
-    cluster_columns = TRUE, 
-    clustering_distance_columns = "euclidean", 
-    clustering_method_columns = "complete",
+    
     column_dend_side = c("top", "bottom"), 
     column_dend_height = unit(10, "mm"), 
     show_column_dend = TRUE, 
@@ -275,8 +276,11 @@ Heatmap = function(matrix, col, name,
     combined_name_fun = function(x) paste(x, collapse = "/"),
     width = NULL, 
     show_heatmap_legend = TRUE,
-    heatmap_legend_param = list(title = name, color_bar = "discrete")) {
-
+    heatmap_legend_param = list(title = name, color_bar = "discrete"),
+    ### lileok
+    scale = c("none","row","column"),
+    trim = FALSE,
+    trim_size = 3) {
     # re-define some of the argument values according to global settings
     called_args = names(as.list(match.call())[-1])
     e = environment()
@@ -384,9 +388,19 @@ Heatmap = function(matrix, col, name,
         column_dend_reorder = FALSE
         km = 1
     }
+    # lileok
+    scale = match.arg(scale)[1]
+    if(scale != "none") matrix = scale_mat(matrix, scale)
+    if(trim) matrix = trim_mat(matrix, trim_size)
+
     .Object@matrix = matrix
     .Object@matrix_param$km = km
     .Object@matrix_param$gap = gap
+    ## lileok
+    .Object@matrix_param$scale = scale
+    .Object@matrix_param$trim = trim
+    .Object@matrix_param$trim_size = trim_size
+    
     if(!is.null(split)) {
         if(inherits(cluster_rows, c("dendrogram", "hclust"))) {
             .Object@matrix_param$split = split
@@ -415,31 +429,32 @@ Heatmap = function(matrix, col, name,
         colnames(matrix) = name
         .Object@matrix = matrix
     }
-
+    
+   
     # color for main matrix
     if(ncol(matrix) > 0 && nrow(matrix) > 0) {
-        if(missing(col)) {
-            col = default_col(matrix, main_matrix = TRUE)
-        }
-        if(is.function(col)) {
+      if(missing(col)) {
+        col = default_col(matrix, main_matrix = TRUE)
+      }
+      if(is.function(col)) {
+        .Object@matrix_color_mapping = ColorMapping(col_fun = col, name = name, na_col = na_col)
+      } else {
+        if(is.null(names(col))) {
+          if(length(col) == length(unique(as.vector(matrix)))) {
+            names(col) = unique(as.vector(matrix))
+            .Object@matrix_color_mapping = ColorMapping(colors = col, name = name, na_col = na_col)
+          } else if(is.numeric(matrix)) {
+            col = colorRamp2(seq(min(matrix, na.rm = TRUE), max(matrix, na.rm = TRUE), length = length(col)),
+                             col, space = color_space)
             .Object@matrix_color_mapping = ColorMapping(col_fun = col, name = name, na_col = na_col)
+          } else {
+            stop("`col` should have names to map to values in `mat`.")
+          }
         } else {
-            if(is.null(names(col))) {
-                if(length(col) == length(unique(as.vector(matrix)))) {
-                    names(col) = unique(as.vector(matrix))
-                    .Object@matrix_color_mapping = ColorMapping(colors = col, name = name, na_col = na_col)
-                } else if(is.numeric(matrix)) {
-                    col = colorRamp2(seq(min(matrix, na.rm = TRUE), max(matrix, na.rm = TRUE), length = length(col)),
-                                     col, space = color_space)
-                    .Object@matrix_color_mapping = ColorMapping(col_fun = col, name = name, na_col = na_col)
-                } else {
-                    stop("`col` should have names to map to values in `mat`.")
-                }
-            } else {
-                .Object@matrix_color_mapping = ColorMapping(colors = col, name = name, na_col = na_col)
-            }
+          .Object@matrix_color_mapping = ColorMapping(colors = col, name = name, na_col = na_col)
         }
-        .Object@matrix_color_mapping_param = heatmap_legend_param
+      }
+      .Object@matrix_color_mapping_param = heatmap_legend_param
     }
     
     if(length(row_title) == 0) {
@@ -1224,11 +1239,13 @@ setMethod(f = "draw_heatmap_body",
     row_order = object@row_order_list[[k]]
     column_order = object@column_order
 
+    
     gp = object@matrix_param$gp
 
     pushViewport(viewport(name = paste(object@name, "heatmap_body", k, sep = "_"), ...))
 
     mat = object@matrix[row_order, column_order, drop = FALSE]
+    
     col_matrix = map_to_colors(object@matrix_color_mapping, mat)
 
     nc = ncol(mat)
