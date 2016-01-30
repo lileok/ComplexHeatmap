@@ -276,7 +276,7 @@ Heatmap = function(matrix, col, name,
     combined_name_fun = function(x) paste(x, collapse = "/"),
     width = NULL, 
     show_heatmap_legend = TRUE,
-    heatmap_legend_param = list(title = name, color_bar = "discrete"),
+    heatmap_legend_param = list(title = name, color_bar = "continuous"),
     ### lileok
     scale = c("none","row","column"),
     trim = FALSE,
@@ -388,18 +388,26 @@ Heatmap = function(matrix, col, name,
         column_dend_reorder = FALSE
         km = 1
     }
-    # lileok
-    scale = match.arg(scale)[1]
-    if(scale != "none") matrix = scale_mat(matrix, scale)
-    if(trim) matrix = trim_mat(matrix, trim_size)
-
-    .Object@matrix = matrix
-    .Object@matrix_param$km = km
-    .Object@matrix_param$gap = gap
+    # put it before scale and trim so it cluster 
+    # pattern will be determined by origninal data
+    .Object@matrix = matrix 
+    
     ## lileok
+    scale = match.arg(scale)[1]
     .Object@matrix_param$scale = scale
     .Object@matrix_param$trim = trim
     .Object@matrix_param$trim_size = trim_size
+    if(scale != "none") {
+      matrix = scale_mat(matrix, scale)
+      .Object@matrix_param$matrix_scaled = matrix
+      }
+    if(trim) {
+      matrix = trim_mat(matrix, trim_size)
+      .Object@matrix_param$matrix_trimed = matrix
+      }
+
+    .Object@matrix_param$km = km
+    .Object@matrix_param$gap = gap
     
     if(!is.null(split)) {
         if(inherits(cluster_rows, c("dendrogram", "hclust"))) {
