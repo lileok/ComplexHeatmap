@@ -240,22 +240,22 @@ Heatmap = function(matrix, col, name,
     show_row_dend = TRUE, 
     row_dend_reorder = TRUE,
     row_dend_gp = gpar(), 
-    row_hclust_side = row_dend_side,
-    row_hclust_width = row_dend_width, 
-    show_row_hclust = show_row_dend, 
-    row_hclust_reorder = row_dend_reorder,
-    row_hclust_gp = row_dend_gp, 
+    #row_hclust_side = row_dend_side,
+    #row_hclust_width = row_dend_width, 
+    #show_row_hclust = show_row_dend, 
+    #row_hclust_reorder = row_dend_reorder,
+    #row_hclust_gp = row_dend_gp, 
     
     column_dend_side = c("top", "bottom"), 
     column_dend_height = unit(10, "mm"), 
     show_column_dend = TRUE, 
     column_dend_gp = gpar(), 
     column_dend_reorder = TRUE,
-    column_hclust_side = column_dend_side, 
-    column_hclust_height = column_dend_height, 
-    show_column_hclust = show_column_dend, 
-    column_hclust_gp = column_dend_gp, 
-    column_hclust_reorder = column_dend_reorder,
+    #column_hclust_side = column_dend_side, 
+    #column_hclust_height = column_dend_height, 
+    #show_column_hclust = show_column_dend, 
+    #column_hclust_gp = column_dend_gp, 
+    #column_hclust_reorder = column_dend_reorder,
     row_order = NULL, 
     column_order = NULL,
     row_names_side = c("right", "left"), 
@@ -276,7 +276,7 @@ Heatmap = function(matrix, col, name,
     combined_name_fun = function(x) paste(x, collapse = "/"),
     width = NULL, 
     show_heatmap_legend = TRUE,
-    heatmap_legend_param = list(title = name, color_bar = "continuous"),
+    heatmap_legend_param = list(title = name, color_bar = "discrete"),
     ### lileok
     scale = c("none","row","column"),
     trim = FALSE,
@@ -399,11 +399,14 @@ Heatmap = function(matrix, col, name,
     .Object@matrix_param$trim_size = trim_size
     if(scale != "none") {
       matrix = scale_mat(matrix, scale)
-      .Object@matrix_param$matrix_scaled = matrix
-      }
-    if(trim) {
-      matrix = trim_mat(matrix, trim_size)
-      .Object@matrix_param$matrix_trimed = matrix
+      if(trim)matrix = trim_mat(matrix, trim_size)
+      
+      .Object@matrix_param$matrix_transformed = matrix
+    }else{
+        if(trim){
+          matrix = trim_mat(matrix, trim_size)
+          .Object@matrix_param$matrix_transformed = matrix
+        }
       }
 
     .Object@matrix_param$km = km
@@ -1251,8 +1254,14 @@ setMethod(f = "draw_heatmap_body",
     gp = object@matrix_param$gp
 
     pushViewport(viewport(name = paste(object@name, "heatmap_body", k, sep = "_"), ...))
+    
+    #lileok
+    if(!is.null(object@matrix_param$matrix_transformed)){
+      matrix = object@matrix_param$matrix_transformed 
+    } else matrix = object@matrix
 
-    mat = object@matrix[row_order, column_order, drop = FALSE]
+
+    mat = matrix[row_order, column_order, drop = FALSE]
     
     col_matrix = map_to_colors(object@matrix_color_mapping, mat)
 
