@@ -236,7 +236,7 @@ Heatmap = function(matrix, col, name,
     column_title_gp = gpar(fontsize = 14), 
     column_title_rot = 0,
     row_dend_side = c("left", "right"),
-    row_dend_width = unit(10, "mm"), 
+    row_dend_width = unit(0.15, "npc"), 
     show_row_dend = TRUE, 
     row_dend_reorder = TRUE,
     row_dend_gp = gpar(), 
@@ -247,7 +247,7 @@ Heatmap = function(matrix, col, name,
     #row_hclust_gp = row_dend_gp, 
     
     column_dend_side = c("top", "bottom"), 
-    column_dend_height = unit(10, "mm"), 
+    column_dend_height = unit(0.15, "npc"), 
     show_column_dend = TRUE, 
     column_dend_gp = gpar(), 
     column_dend_reorder = TRUE,
@@ -326,6 +326,11 @@ Heatmap = function(matrix, col, name,
     if(is.data.frame(matrix)) {
         matrix = as.matrix(matrix)
     }
+    # lileok
+    if (is.null(rownames(matrix))) rownames(matrix) = 1:nrow(matrix)
+    if (is.null(colnames(matrix))) colnames(matrix) = 1:ncol(matrix)
+    
+    
     if(!is.matrix(matrix)) {
         if(is.atomic(matrix)) {
             rn = names(matrix)
